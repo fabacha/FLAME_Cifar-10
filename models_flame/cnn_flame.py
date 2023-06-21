@@ -1,6 +1,16 @@
+'''ResNet in PyTorch.
+For Pre-activation ResNet, see 'preact_resnet.py'.
+Taken from this repo: https://github.com/kuangliu/pytorch-cifar
+
+Reference:
+[1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
+    Deep Residual Learning for Image Recognition. arXiv:1512.03385
+'''
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+import torchvision.models.resnet as resnet
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -64,6 +74,22 @@ class ResNet(nn.Module):
 
 def CNN(num_classes=10):
     return ResNet(BasicBlock, [2, 2, 2, 2],num_classes)
+
+#To use a pretrained network, comment line 65 and 66 above and use the codes below:
+
+# def CNN(num_classes=10):
+#     # Load the pre-trained ResNet-18 model from PyTorch
+#     model = models.resnet18(pretrained=True)
+
+#     # Replace the final fully connected layer with one that matches the number of classes
+#     # model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
+
+#     model.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1, bias=False)  
+#     model.maxpool = nn.MaxPool2d(1, 1, 0)  
+#     num_ftrs = model.fc.in_features
+#     model.fc = nn.Linear(num_ftrs, num_classes)
+
+#     return model
 
 if __name__ == "__main__":
     net = CNN(num_classes=10)
