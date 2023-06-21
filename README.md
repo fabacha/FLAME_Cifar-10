@@ -54,7 +54,9 @@ A description of all arguments can be displayed by executing:
 
 python main_file.py -h
 
-python main_file.py --niter 2000 --batch_size 64 --lr 0.25 --seed 123 --nruns 1 --test_every 10 --nbyz 2 --protocol psReplicated2k --players 4 --threads 8 --flame_epsilon 3000 --flame_delta 0.01 --aggregation flame --gpu 0 --net cnn --data CIFAR-10 --nworkers 100
+python main_file.py --niter 2000 --batch_size 64 --lr 0.25 --seed 123 --nruns 1 --test_every 10 --nbyz 2 --protocol psReplicated2k --players 4 --threads 8 --flame_epsilon 3000 --flame_delta 0.01 --aggregation flame --gpu 0 --net cnn --data CIFAR-10 --nworkers 20
+
+We are using 20 as the number of workers because higher numbers need more GPU memory
 
 ```
 # Requirements
