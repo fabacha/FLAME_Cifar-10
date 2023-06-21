@@ -1,4 +1,5 @@
 from __future__ import print_function
+#from torch.optim import SGD
 
 import aggregation_flame
 import numpy as np
@@ -6,7 +7,6 @@ import random
 import argparse
 import attacks_flame
 import data_loaders_flame
-from models_flame import cnn_flame
 
 import os
 import math
@@ -17,10 +17,11 @@ import torch.nn as nn
 import torch.utils.data
 from matplotlib import pyplot as plt
 
+
 import wandb
 
-#set up wandb
-#wandb.init(entity= 'username', project='project name')
+
+wandb.init(entity= 'fabacha22', project='FLAME')
 
 
 
@@ -50,7 +51,10 @@ def parse_args():
     ### Aggregations
     parser.add_argument("--aggregation", help="aggregation", type=str, default="fedavg")
 
-     # FLAME
+    # FLOD
+    parser.add_argument("--flod_threshold", help="hamming distance threshold as fraction of total model parameters", type=float, default=0.5)
+
+    # FLAME
     parser.add_argument("--flame_epsilon", help="epsilon for differential privacy in FLAME", type=int, default=3000)
     parser.add_argument("--flame_delta", help="delta for differential privacy in FLAME", type=float, default=0.001)
 
@@ -100,7 +104,7 @@ def get_net(net_type, num_inputs, num_outputs=10):
     num_outputs: number of outputs/classes
     """
     if net_type == "lr":
-        import models_flame.lr as lr
+        import models.lr as lr
         net = lr.LinearRegression(input_dim=num_inputs, output_dim=num_outputs)
         print(net)
 
@@ -113,6 +117,7 @@ def get_net(net_type, num_inputs, num_outputs=10):
         raise NotImplementedError
     return net
 
+
 def get_byz(byz_type):
     """
     Gets the attack type.
@@ -121,19 +126,19 @@ def get_byz(byz_type):
     if byz_type == "no":
         return attacks_flame.no_byz
     elif byz_type == 'trim_attack':
-        return attacks.trim_attack
+        return attacks_flame.trim_attack
     elif byz_type == "krum_attack":
-        return attacks.krum_attack
+        return attacks_flame.krum_attack
     elif byz_type == "scaling_attack":
-        return attacks.scaling_attack_scale
+        return attacks_flame.scaling_attack_scale
     elif byz_type == "fltrust_attack":
-        return attacks.fltrust_attack
+        return attacks_flame.fltrust_attack
     elif byz_type == "label_flipping_attack":
-        return attacks.no_byz
+        return attacks_flame.no_byz
     elif byz_type == "min_max_attack":
         return attacks.min_max_attack
     elif byz_type == "min_sum_attack":
-        return attacks.min_sum_attack
+        return attacks_flame.min_sum_attack
     else:
         raise NotImplementedError
 
@@ -234,7 +239,6 @@ def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, nit
             backdoor_success_list = runs_backdoor_success
             backdoor_success_std = [0 for i in range(0, len(runs_backdoor_success))]
         runs_test_accuracy = np.insert(runs_test_accuracy, 0, 0, axis=0)
-
         test_acc_list = runs_test_accuracy
         test_acc_std = [0 for i in range(0, len(runs_test_accuracy))]
     else:
@@ -307,12 +311,22 @@ def weight_init(m):
     Initializes the weights of the layer with random values.
     m: the layer which gets initialized
     """
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight, gain=2.24)
-        if m.bias is not None:
-            torch.nn.init.zeros_(m.bias)
+    # if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+    #     nn.init.xavier_uniform_(m.weight, gain=2.24)
+    #     if m.bias is not None:
+    #         torch.nn.init.zeros_(m.bias)
 
+    #From this ref: https://colab.research.google.com/drive/1AQX35TJdH0u_mWoEEAkK_CN00xA6TyTY
+    if isinstance(m, (nn.Linear, nn.Conv2d)):
+        nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+    # elif isinstance(m, nn.BatchNorm2d):
+    #     nn.init.xavier_uniform_(m.weight, 1)
+    #     nn.init.xavier_uniform_(m.bias, 0)
+    elif isinstance(m, nn.BatchNorm2d):
+        nn.init.constant_(m.weight, 1)
+        nn.init.constant_(m.bias, 0)
 
+    
 def main(args):
     """
     The main function that runs the entire training process of the model.
@@ -328,7 +342,7 @@ def main(args):
     paraString = ('dataset: p' + str(args.p) + '_' + str(args.dataset) + ", server_pc: " + str(args.server_pc) + ", bias: " + str(args.bias)
                   + ", nworkers: " + str(args.nworkers) + ", net: " + str(args.net) + ", niter: " + str(args.niter) + ", lr: " + str(args.lr)
                   + ", batch_size: " + str(args.batch_size) + ", nbyz: " + str(args.nbyz) + ", attack: " + str(args.byz_type)
-                  #+ ", aggregation: " + str(args.aggregation) + ", FLOD_threshold: " + str(args.flod_threshold)
+                  + ", aggregation: " + str(args.aggregation) + ", FLOD_threshold: " + str(args.flod_threshold)
                   + ", Flame_epsilon: " + str(args.flame_epsilon) + ", Flame_delta: " + str(args.flame_delta) + ", Number_runs: " + str(args.nruns)
                   + ", DnC_niters: " + str(args.dnc_niters) + ", DnC_c: " + str(args.dnc_c) + ", DnC_b: " + str(args.dnc_b)
                   + ", MP-SPDZ: " + str(args.mpspdz) + ", Port: "+ str(args.port) + ", Chunk_size: " + str(args.chunk_size)
@@ -345,10 +359,7 @@ def main(args):
     # model
     net = get_net(args.net, num_outputs=num_outputs, num_inputs=num_inputs)
     net = net.to(device)
-
-
     num_params = torch.cat([xx.reshape((-1, 1)) for xx in net.parameters()], dim=0).size()[0]  # used for FLOD to determine threshold
-
     # loss
     softmax_cross_entropy = nn.CrossEntropyLoss()
 
@@ -366,7 +377,7 @@ def main(args):
     if args.dataset == "HAR" and args.nworkers != 30:
         raise ValueError("HAR only works for 30 workers!")
 
-    # compile server program for aggregation in MPC
+    # compile server programm for aggregation in MPC
     if args.mpspdz:
         script, players = get_protocol(args.protocol, args.players)
         args.script, args.players = script, players
@@ -377,9 +388,6 @@ def main(args):
         elif args.aggregation == "fltrust":
             args.filename_server = "mpc_fltrust_server"
             num_gradients = args.nworkers + 1
-        elif args.aggregation == "flame":
-            args.filename_server = "mpc_flame_server"
-            num_gradients = args.nworkers + 1
         else:
             raise NotImplementedError
 
@@ -389,15 +397,11 @@ def main(args):
 
         if not os.path.exists('./Programs/Bytecode'):
             os.mkdir('./Programs/Bytecode')
-        already_compiled = len(
-            list(filter(lambda f: f.find(args.full_filename) != -1, os.listdir('./Programs/Bytecode')))) != 0
+        already_compiled = len(list(filter(lambda f : f.find(args.full_filename) != -1, os.listdir('./Programs/Bytecode')))) != 0
 
         if args.always_compile or not already_compiled:
             # compile mpc program, arguments -R 64 -X were chosen so that every protocol works
-            os.system('./compile.py -R 64 -X ' + args.filename_server + ' ' + str(args.port) + ' ' + str(
-                num_params) + ' ' + str(num_gradients) + ' ' + str(args.niter) + ' ' + str(args.chunk_size) + ' ' + str(
-                args.threads) + ' ' + str(args.parallels))
-
+            os.system('./compile.py -R 64 -X ' + args.filename_server + ' ' + str(args.port) + ' ' + str(num_params) + ' ' + str(num_gradients) + ' ' + str(args.niter) + ' ' + str(args.chunk_size) + ' ' + str(args.threads) + ' ' + str(args.parallels))
 
         # setup ssl keys
         os.system('Scripts/setup-ssl.sh ' + str(args.players))
@@ -464,7 +468,7 @@ def main(args):
 
 
         with torch.no_grad():
-            # training
+
             for e in range(args.niter):
                 net.train()
 
@@ -477,8 +481,8 @@ def main(args):
                         output = net(each_worker_data[i][minibatch])
                         loss = softmax_cross_entropy(output, each_worker_label[i][minibatch])
                         loss.backward()
-
                     grad_list.append([param.grad.clone().detach() for param in net.parameters()])
+
 
                 # compute server update and append it to the end of the list
                 if args.aggregation in ["fltrust", "flod"] or args.byz_type == "fltrust_attack":
@@ -491,7 +495,7 @@ def main(args):
 
                 # perform the aggregation
                 if args.mpspdz:
-                    aggregation_flame.mpspdz_aggregation(grad_list, net, args.lr, args.nbyz, byz, device, param_num=num_params, port=args.port, chunk_size=args.chunk_size, parties=args.players)
+                    aggregation_rules.mpspdz_aggregation(grad_list, net, args.lr, args.nbyz, byz, device, param_num=num_params, port=args.port, chunk_size=args.chunk_size, parties=args.players)
 
                 elif args.aggregation == "fltrust":
                     aggregation_rules.fltrust(grad_list, net, args.lr, args.nbyz, byz, device)
@@ -552,8 +556,9 @@ def main(args):
                         print("Iteration %02d. Test_acc %0.4f. Backdoor success rate: %0.4f" % (e, test_accuracy, test_success_rate))
                     else:
                         print("Iteration %02d. Test_acc %0.4f" % (e, test_accuracy))
-                    # set up wand
-                        #wandb.log({'Iteration': e, 'accuracy': test_accuracy, 'BA Success': test_success_rate})
+
+                        wandb.log({'Iteration': e, 'accuracy': test_accuracy, 'BA Success': test_success_rate})
+
         if args.mpspdz:
             server_process.wait()   # wait for process to exit
 
