@@ -38,11 +38,17 @@ def load_data(dataset, seed):
     g.manual_seed(seed)
 
     if dataset == 'CIFAR-10':
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        transform = transforms.Compose([transforms.RandomHorizontalFlip(),transforms.RandomCrop(32, padding=4),
+                    transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
 
-        trainset = CIFAR10(root='./data', train=True, download=True, transform=transform)
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+
+
+        trainset = CIFAR10(root='./data', train=True, download=True, transform=transform_test)
         train_loader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=2,
                                                    worker_init_fn=seed_worker)
 
@@ -119,18 +125,6 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
                     each_worker_data[worker_index].append(x)
                     each_worker_label[worker_index].append(y)
 
-        # for _, (data, label) in enumerate(train_data):
-        #     data = data.to(device)
-        #     label = label.to(device)
-        #
-        #     for (x, y) in zip(data, label):
-        #         if len(server_data) < server_pc:
-        #             server_data.append(x)
-        #             server_label.append(y)
-        #         else:
-        #             client_id = np.random.randint(num_clients)
-        #             each_worker_data[client_id].append(x)
-        #             each_worker_label[client_id].append(y)
 
     elif dataset == 'HAR':
         # existing code for assigning data for the HAR dataset
@@ -142,8 +136,13 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
         server_data = torch.stack(server_data, dim=0)
         server_label = torch.stack(server_label, dim=0)
     else:
-        server_data = torch.empty(size=(0, 3, 32, 32)).to(device)
-        server_label = torch.empty(size=(0,)).to(device)
+        if dataset == "CIFAR-10":
+            server_data = torch.empty(size=(0, 3, 32, 32)).to(device)
+
+        else:
+            raise NotImplementedError
+
+    server_label = torch.empty(size=(0,)).to(device)
 
     each_worker_data = [torch.stack(each_worker, dim=0) for each_worker in each_worker_data]
     each_worker_label = [torch.stack(each_worker, dim=0) for each_worker in each_worker_label]
