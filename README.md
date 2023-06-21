@@ -1,5 +1,12 @@
 # FLAME: Taming Backdoors in Federated Learning
-This project implements FLAME found here https://arxiv.org/abs/2101.02281 using the CIFAR-10 dataset and a CNN
+This project implements FLAME found here https://arxiv.org/abs/2101.02281 using the CIFAR-10 dataset and a ResNet
+
+# Credits
+
+This project is based on code by Gehlar et al. the authors of SAFEFL https://eprint.iacr.org/2023/555
+
+Their original codes and repository is here https://github.com/encryptogroup/SAFEFL
+
 
 ## Aggregation rules
 The following aggregation rules have been implemented:
@@ -67,10 +74,6 @@ All requirements can be found in the  _requirements.txt_.
 You can create the environment using 
 
 conda env create -f environment.yml
-
-# Credits
-
-This project is based on code by Gehlar et al. the authors of SAFEFL https://eprint.iacr.org/2023/555
 
 The MPC Framework MP-SPDZ was created by [Marcel Keller](https://github.com/data61/MP-SPDZ).
 
