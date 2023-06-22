@@ -336,7 +336,6 @@ def main(args):
                   + ", batch_size: " + str(args.batch_size) + ", nbyz: " + str(args.nbyz) + ", attack: " + str(args.byz_type)
                   + ", aggregation: " + str(args.aggregation) + ", 
                   + ", Flame_epsilon: " + str(args.flame_epsilon) + ", Flame_delta: " + str(args.flame_delta) + ", Number_runs: " + str(args.nruns)
-                  + ", 
                   + ", MP-SPDZ: " + str(args.mpspdz) + ", Port: "+ str(args.port) + ", Chunk_size: " + str(args.chunk_size)
                   + ", Protocol: " + args.protocol + ", Threads: " + str(args.threads) + ", Parallels: " + str(args.parallels)
                   + ", Seed: " + str(args.seed) + ", Test Every: " + str(args.test_every))
