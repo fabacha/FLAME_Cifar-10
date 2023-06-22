@@ -20,8 +20,8 @@ from matplotlib import pyplot as plt
 
 import wandb
 
-
-wandb.init(entity= 'fabacha22', project='FLAME')
+#Setup wandb
+#wandb.init(entity= username, project='FLAME')
 
 
 
