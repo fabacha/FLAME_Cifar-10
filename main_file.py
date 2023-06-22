@@ -433,9 +433,12 @@ def main(args):
             server_process = subprocess.Popen(["./run_aggregation.sh", args.script, args.full_filename, str(args.players)])
 
             os.chdir("..")
-
+        
         with torch.no_grad():
-
+            
+            #Store the loss at each epoch
+            losses = []
+            
             for e in range(args.niter):
                 net.train()
 
@@ -447,7 +450,9 @@ def main(args):
                     with torch.enable_grad():
                         output = net(each_worker_data[i][minibatch])
                         loss = softmax_cross_entropy(output, each_worker_label[i][minibatch])
-                        loss.backward()
+                        loss.backward()                    
+                   
+                
                     grad_list.append([param.grad.clone().detach() for param in net.parameters()])
 
 
@@ -459,6 +464,10 @@ def main(args):
                         loss = softmax_cross_entropy(output, server_label)
                         loss.backward()
                     grad_list.append([torch.clone(param.grad) for param in net.parameters()])
+
+                 # Store the loss for this epoch
+                losses.append(loss.item())
+                wandb.log({'Loss': losses})
 
                 # perform the aggregation
                 if args.mpspdz:
