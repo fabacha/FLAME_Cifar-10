@@ -34,7 +34,7 @@ def parse_args():
     ### Model and Dataset
     parser.add_argument("--net", help="net", type=str, default="lr")
     parser.add_argument("--server_pc", help="the number of data the server holds", type=int, default=100)
-    parser.add_argument("--dataset", help="dataset", type=str, default="HAR")
+    parser.add_argument("--dataset", help="dataset", type=str, default="CIFAR10")
     parser.add_argument("--bias", help="degree of non-iid", type=float, default=0.5)
     parser.add_argument("--p", help="bias probability of class 1 in server dataset", type=float, default=0.1)
 
