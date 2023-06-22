@@ -29,7 +29,7 @@ def parse_args():
     """
     Parses all commandline arguments.
     """
-    parser = argparse.ArgumentParser(description="SAFEFL: MPC-friendly framework for Private and Robust Federated Learning")
+    parser = argparse.ArgumentParser(description="FLAME: Taming Backdoors in Federated Learning")
 
     ### Model and Dataset
     parser.add_argument("--net", help="net", type=str, default="lr")
@@ -51,19 +51,11 @@ def parse_args():
     ### Aggregations
     parser.add_argument("--aggregation", help="aggregation", type=str, default="fedavg")
 
-    # FLOD
-    parser.add_argument("--flod_threshold", help="hamming distance threshold as fraction of total model parameters", type=float, default=0.5)
-
     # FLAME
     parser.add_argument("--flame_epsilon", help="epsilon for differential privacy in FLAME", type=int, default=3000)
     parser.add_argument("--flame_delta", help="delta for differential privacy in FLAME", type=float, default=0.001)
 
-    # DNC
-    parser.add_argument("--dnc_niters", help="number of iterations to compute good sets in DnC", type=int, default=5)
-    parser.add_argument("--dnc_c", help="filtering fraction, percentage of number of malicious clients filtered", type=float, default=1)
-    parser.add_argument("--dnc_b", help="dimension of subsamples must be smaller, then the dimension of the gradients", type=int, default=2000)
-
-    ### Attacks
+       ### Attacks
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
     parser.add_argument("--byz_type", help="type of attack", type=str, default="no", choices=["no", "trim_attack", "krum_attack",
                             "scaling_attack", "fltrust_attack", "label_flipping_attack", "min_max_attack", "min_sum_attack"])
@@ -426,27 +418,11 @@ def main(args):
             np.random.seed(args.seed)
 
         net.apply(weight_init)  # initialization of model
-
-        # set aggregation specific variables
-        if args.aggregation == "shieldfl":
-            previous_global_gradient = 0  # important for ShieldFL, all other aggregation rules don't need it
-            previous_gradients = []
-        elif args.aggregation == "foolsgold":
-            gradient_history = [torch.zeros(size=(num_params, 1)).to(device) for i in range(args.nworkers)]   # client gradient history for FoolsGold
-        elif args.aggregation == "contra":
-            gradient_history = [torch.zeros(size=(num_params, 1)).to(device) for i in range(args.nworkers)]   # client gradient history for CONTRA
-            reputation = torch.ones(size=(args.nworkers, )).to(device)                                        # reputation scores for CONTRA
-            cos_dist = torch.zeros((args.nworkers, args.nworkers), dtype=torch.double).to(device)               # pairwise cosine similarity for CONTRA
-        elif args.aggregation == "romoa":
-            # don't know why they initialize it like this
-            previous_global_gradient = torch.cat([param.clone().detach().flatten() for param in net.parameters()]).reshape(-1, 1) + torch.normal(mean=0, std=1e-7, size=(num_params, 1)).to(device)
-            sanitization_factor = torch.full(size=(args.nworkers, num_params), fill_value=(1 / args.nworkers)).to(device)  # sanitization factors for Romoa
-
+             
         train_data, test_data = data_loaders_flame.load_data(args.dataset, args.seed)  # load the data
 
         # assign data to the server and clients
-        server_data, server_label, each_worker_data, each_worker_label = data_loaders_flame.assign_data(train_data, args.bias, device,
-            num_labels=num_labels, num_workers=args.nworkers, server_pc=args.server_pc, p=args.p, dataset=args.dataset, seed=args.seed)
+        server_data, server_label, each_worker_data, each_worker_label = data_loaders_flame.assign_data(train_data, args.bias, device,num_labels=num_labels, num_workers=args.nworkers, server_pc=args.server_pc, p=args.p, dataset=args.dataset, seed=args.seed)
 
         # perform data poisoning attacks
         if args.byz_type == "label_flipping_attack":
@@ -465,7 +441,6 @@ def main(args):
             server_process = subprocess.Popen(["./run_aggregation.sh", args.script, args.full_filename, str(args.players)])
 
             os.chdir("..")
-
 
         with torch.no_grad():
 
@@ -497,49 +472,16 @@ def main(args):
                 if args.mpspdz:
                     aggregation_rules.mpspdz_aggregation(grad_list, net, args.lr, args.nbyz, byz, device, param_num=num_params, port=args.port, chunk_size=args.chunk_size, parties=args.players)
 
-                elif args.aggregation == "fltrust":
-                    aggregation_rules.fltrust(grad_list, net, args.lr, args.nbyz, byz, device)
-
+              
                 elif args.aggregation == "fedavg":
                     data_sizes = [x.size(dim=0) for x in each_worker_data]
                     aggregation_flame.fedavg(grad_list, net, args.lr, args.nbyz, byz, device, data_sizes)
 
-                elif args.aggregation == "krum":
-                    aggregation_rules.krum(grad_list, net, args.lr, args.nbyz, byz, device)
-
-                elif args.aggregation == "trim_mean":
-                    aggregation_rules.trim_mean(grad_list, net, args.lr, args.nbyz, byz, device)
-
-                elif args.aggregation == "median":
-                    aggregation_rules.median(grad_list, net, args.lr, args.nbyz, byz, device)
-
+               
                 elif args.aggregation == "flame":
                     aggregation_flame.flame(grad_list, net, args.lr, args.nbyz, byz, device, epsilon=args.flame_epsilon, delta=args.flame_delta)
 
-                elif args.aggregation == "shieldfl":
-                    previous_global_gradient, previous_gradients = aggregation_rules.shieldfl(grad_list, net, args.lr, args.nbyz, byz, device, previous_global_gradient, e, previous_gradients)
-
-                elif args.aggregation == "flod":
-                    aggregation_rules.flod(grad_list, net, args.lr, args.nbyz, byz, device, threshold=math.floor(num_params * args.flod_threshold))
-
-                elif args.aggregation == "divide_and_conquer":
-                    aggregation_rules.divide_and_conquer(grad_list, net, args.lr, args.nbyz, byz, device, niters=args.dnc_niters, c=args.dnc_c, b=args.dnc_b)
-
-                elif args.aggregation == "foolsgold":
-                    gradient_history = aggregation_rules.foolsgold(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history)
-
-                elif args.aggregation == "contra":
-                    gradient_history, reputation, cos_dist = aggregation_rules.contra(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history, reputation=reputation, cos_dist=cos_dist, C=1)
-
-                elif args.aggregation == "signguard":
-                    aggregation_rules.signguard(grad_list, net, args.lr, args.nbyz, byz, device, seed=args.seed)
-
-                elif args.aggregation == "flare":
-                    aggregation_rules.flare(grad_list, net, args.lr, args.nbyz, byz, device, server_data)
-
-                elif args.aggregation == "romoa":
-                    sanitization_factor, previous_global_gradient = aggregation_rules.romoa(grad_list, net, args.lr, args.nbyz, byz, device, F=sanitization_factor, prev_global_update=previous_global_gradient, seed=args.seed)
-
+               
                 else:
                     raise NotImplementedError
 
