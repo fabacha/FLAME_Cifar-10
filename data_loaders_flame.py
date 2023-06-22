@@ -15,11 +15,7 @@ import torch.multiprocessing as mp
 mp.set_sharing_strategy('file_system')
 
 def get_shapes(dataset):
-    if dataset == 'HAR':
-        num_inputs = 561
-        num_outputs = 6
-        num_labels = 6
-    elif dataset == 'CIFAR-10':
+    if dataset == 'CIFAR-10':
         num_inputs = 3 * 32 * 32
         num_outputs = 10
         num_labels = 10
@@ -55,9 +51,7 @@ def load_data(dataset, seed):
         testset = CIFAR10(root='./data', train=False, download=True, transform=transform)
         test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2,
                                                   worker_init_fn=seed_worker)
-    elif dataset == 'HAR':
-        # existing code for loading HAR dataset
-        pass
+   
     else:
         raise NotImplementedError
     return train_loader, test_loader
@@ -65,22 +59,14 @@ def load_data(dataset, seed):
 
 def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server_pc=100, p=0.1, dataset="HAR", seed=1):
     other_group_size = (1 - bias) / (num_labels - 1)
-    if dataset == "HAR":
-        worker_per_group = 30 / num_labels
-
-    elif dataset == "CIFAR-10":
+    if dataset == "CIFAR-10":
         worker_per_group = num_workers / num_labels
 
     else:
         raise NotImplementedError
 
     # assign training data to each worker
-    if dataset == "HAR":
-        each_worker_data = [[] for _ in range(30)]
-        each_worker_label = [[] for _ in range(30)]
-
-
-    elif dataset == "CIFAR-10":
+    if dataset == "CIFAR-10":
 
         each_worker_data = [[] for _ in range(num_workers)]
 
@@ -125,10 +111,6 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
                     each_worker_data[worker_index].append(x)
                     each_worker_label[worker_index].append(y)
 
-
-    elif dataset == 'HAR':
-        # existing code for assigning data for the HAR dataset
-        pass
     else:
         raise NotImplementedError
 
