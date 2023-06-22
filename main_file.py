@@ -355,13 +355,6 @@ def main(args):
     softmax_cross_entropy = nn.CrossEntropyLoss()
 
     # perform parameter checks
-    if args.dnc_b > num_params and args.aggregation == "divide_and_conquer":
-        args.dnc_b = num_params  # check for condition in description and fix possible error
-        print("b was larger than the dimension of gradients. Set to dimension of gradients for correctness!")
-
-    if args.dnc_c * args.nbyz >= args.nworkers and args.aggregation == "divide_and_conquer":
-        print("DnC removes all gradients during his computation. Lower c or nbyz, or increase number of devices.")
-
     if args.server_pc == 0 and (args.aggregation in ["fltrust", "flod", "flare"] or args.byz_type == "fltrust_attack"):
         raise ValueError("Server dataset size cannot be 0 when aggregation is FLTrust, MPC FLTrust, FLOD or attack is fltrust attack")
 
