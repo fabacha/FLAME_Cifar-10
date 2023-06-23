@@ -436,9 +436,7 @@ def main(args):
         
         with torch.no_grad():
             
-            #Store the loss at each epoch
-            losses = []
-            
+                     
             for e in range(args.niter):
                 net.train()
 
@@ -454,6 +452,8 @@ def main(args):
                    
                 
                     grad_list.append([param.grad.clone().detach() for param in net.parameters()])
+                    #Store the loss for this epoch
+                    wandb.log({'Train Loss': loss.item(})
 
 
                 # compute server update and append it to the end of the list
@@ -465,9 +465,7 @@ def main(args):
                         loss.backward()
                     grad_list.append([torch.clone(param.grad) for param in net.parameters()])
 
-                 # Store the loss for this epoch
-                losses.append(loss.item())
-                wandb.log({'Loss': losses})
+                    
 
                 # perform the aggregation
                 if args.mpspdz:
