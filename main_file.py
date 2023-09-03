@@ -21,7 +21,7 @@ from matplotlib import pyplot as plt
 import wandb
 
 
-wandb.init(entity= 'username', project='FLAME_Cifar10')
+wandb.init(entity= 'fabacha22', project='FLAME_Cifar10_Kaggle')
 
 
 
